@@ -1,4 +1,5 @@
 import type { CreateUserRequest, DisplaySeries, ReviewDto, ReviewRequest, SeriesListItem, StoredRecommendation, TmdbSeriesDetails } from './types';
+import { API_BASE_URL } from './config';
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w300';
 
@@ -48,13 +49,13 @@ function toDisplaySeries(item: SeriesListItem): DisplaySeries {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init);
+  const res = await fetch(`${API_BASE_URL}${path}`, init);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json() as Promise<T>;
 }
 
 export async function login(username: string, passcode: string): Promise<string> {
-  const res = await fetch('/login', {
+  const res = await fetch(`${API_BASE_URL}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, passcode }),
@@ -84,7 +85,7 @@ export async function saveReview(payload: ReviewRequest): Promise<ReviewDto> {
 }
 
 export async function deleteReview(reviewId: string): Promise<void> {
-  const res = await fetch(`/series/review/${reviewId}`, { method: 'DELETE' });
+  const res = await fetch(`${API_BASE_URL}/series/review/${reviewId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`API error ${res.status}`);
 }
 
@@ -100,7 +101,7 @@ export async function updateReview(
 }
 
 export async function createUser(payload: CreateUserRequest): Promise<string> {
-  const res = await fetch('/users', {
+  const res = await fetch(`${API_BASE_URL}/users`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

@@ -138,13 +138,13 @@ export function AppDataProvider({ children }) {
       },
       reviews: {
         items: reviews,
-        loading: reviewsLoading || (userId != null && reviews === null),
+        loading: reviewsLoading || (userId != null && reviews === null && !reviewsError),
         error: reviewsError,
         refresh: refreshReviews,
       },
       recommendations: {
         items: recommendations,
-        loading: recsLoading || (userId != null && recommendations === null),
+        loading: recsLoading || (userId != null && recommendations === null && !recsError),
         error: recsError,
         generating,
         generate: generateRecommendations,
