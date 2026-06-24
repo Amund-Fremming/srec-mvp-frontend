@@ -6,15 +6,15 @@ import {
   useMemo,
   useRef,
   useState,
-} from 'react';
-import { useUserId } from './useUserId';
+} from "react";
+import { useUserId } from "./useUserId";
 import {
   getSeriesPage,
   getUserReviews,
   getSeriesById,
   getStoredRecommendations,
   getLlmRecommendations,
-} from '../client';
+} from "../client";
 
 // Central store that pre-loads everything the app needs on first load, then hands
 // cached data to each screen so navigation is instant (no per-screen refetch).
@@ -47,17 +47,29 @@ export function AppDataProvider({ children }) {
   const [popularError, setPopularError] = useState(null);
   const popularCache = useRef({}); // synchronous mirror of popularPages
   const pendingPages = useRef(new Set());
+  const pageBackoff = useRef({}); // { [page]: { nextRetry: number, delay: number } }
 
   const loadPopularPage = useCallback((page) => {
     if (popularCache.current[page] || pendingPages.current.has(page)) return;
+    const backoff = pageBackoff.current[page];
+    if (backoff && Date.now() < backoff.nextRetry) return;
     pendingPages.current.add(page);
     setPopularError(null);
     getSeriesPage(page)
       .then((data) => {
+        delete pageBackoff.current[page];
         popularCache.current = { ...popularCache.current, [page]: data };
         setPopularPages(popularCache.current);
       })
-      .catch(() => setPopularError('Failed to load series. Please try again.'))
+      .catch(() => {
+        const prevDelay = pageBackoff.current[page]?.delay ?? 1000;
+        const nextDelay = Math.min(prevDelay * 2, 30000);
+        pageBackoff.current[page] = {
+          nextRetry: Date.now() + nextDelay,
+          delay: nextDelay,
+        };
+        setPopularError("Failed to load series. Please try again.");
+      })
       .finally(() => pendingPages.current.delete(page));
   }, []);
 
@@ -80,7 +92,7 @@ export function AppDataProvider({ children }) {
     setReviewsError(null);
     return loadEnrichedReviews(userId)
       .then((items) => setReviews(items))
-      .catch(() => setReviewsError('Failed to load your reviews.'))
+      .catch(() => setReviewsError("Failed to load your reviews."))
       .finally(() => setReviewsLoading(false));
   }, [userId]);
 
@@ -99,7 +111,7 @@ export function AppDataProvider({ children }) {
     setRecsError(null);
     return getStoredRecommendations(userId)
       .then((items) => setRecommendations(items))
-      .catch(() => setRecsError('Failed to load recommendations.'))
+      .catch(() => setRecsError("Failed to load recommendations."))
       .finally(() => setRecsLoading(false));
   }, [userId]);
 
@@ -112,7 +124,7 @@ export function AppDataProvider({ children }) {
       const stored = await getStoredRecommendations(userId);
       setRecommendations(stored);
     } catch {
-      setRecsError('Failed to generate recommendations. Please try again.');
+      setRecsError("Failed to generate recommendations. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -138,13 +150,17 @@ export function AppDataProvider({ children }) {
       },
       reviews: {
         items: reviews,
-        loading: reviewsLoading || (userId != null && reviews === null && !reviewsError),
+        loading:
+          reviewsLoading ||
+          (userId != null && reviews === null && !reviewsError),
         error: reviewsError,
         refresh: refreshReviews,
       },
       recommendations: {
         items: recommendations,
-        loading: recsLoading || (userId != null && recommendations === null && !recsError),
+        loading:
+          recsLoading ||
+          (userId != null && recommendations === null && !recsError),
         error: recsError,
         generating,
         generate: generateRecommendations,
@@ -169,11 +185,14 @@ export function AppDataProvider({ children }) {
     ],
   );
 
-  return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
+  return (
+    <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
+  );
 }
 
 export function useAppData() {
   const ctx = useContext(AppDataContext);
-  if (!ctx) throw new Error('useAppData must be used within an AppDataProvider');
+  if (!ctx)
+    throw new Error("useAppData must be used within an AppDataProvider");
   return ctx;
 }
